@@ -5,6 +5,7 @@ export const createProduct = z.object({
   price: z.number().min(1, "Price must be at least Rp. 1"),
   description: z.string().min(1, "Description product required"),
   stock: z.number().min(1, "Stock must be at least 1"),
+  category: z.number().optional().nullable(),
 });
 
 export type ProductInput = z.infer<typeof createProduct>;
