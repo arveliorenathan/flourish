@@ -4,4 +4,4 @@ export const createCategorySchema = z.object({
   name: z.string().min(1, "Category Required"),
 });
 
-export type categoryInput = z.infer<typeof createCategorySchema>;
+export type CreateCategoryInput= z.infer<typeof createCategorySchema>;

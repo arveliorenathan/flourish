@@ -1,11 +1,11 @@
 import { z } from "zod";
 
-export const createProduct = z.object({
+export const createProductSchema = z.object({
   name: z.string().min(1, "Product name required"),
-  price: z.number().min(1, "Price must be at least Rp. 1"),
+  price: z.number().int().min(1, "Price must be at least Rp. 1"),
   description: z.string().min(1, "Description product required"),
-  stock: z.number().min(1, "Stock must be at least 1"),
-  category: z.number().optional().nullable(),
+  stock: z.number().int().min(0, "Stock must be at least 0"),
+  categoryId: z.number().int().optional().nullable(),
 });
 
-export type ProductInput = z.infer<typeof createProduct>;
+export type CreateProductInput = z.infer<typeof createProductSchema>;

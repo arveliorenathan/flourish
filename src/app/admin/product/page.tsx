@@ -1,7 +1,5 @@
-import React from 'react'
+import { Product } from "./product";
 
-export default function page() {
-  return (
-    <div>product page</div>
-  )
+export default function NewCoursePage() {
+  return <Product />;
 }

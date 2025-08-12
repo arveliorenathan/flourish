@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { createProduct } from "@/lib/schema/product.schema";
+import { createProductSchema } from "@/lib/schema/product.schema";
 import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -12,30 +12,36 @@ export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData();
 
-    //Get Product Data
     const name = formData.get("name") as string;
-    const price = Number(formData.get("price"));
+    const priceRaw = formData.get("price");
     const description = formData.get("description") as string;
-    const stock = Number(formData.get("stock"));
-    const imageFile = formData.get("imageUrl") as File;
-    const categoryIdInput = formData.get("categoryId");
+    const stockRaw = formData.get("stock");
+    const imageFile = formData.get("imageUrl") as File | null;
+    const categoryRaw = formData.get("categoryId");
 
-    const categoryId = categoryIdInput ? Number(categoryIdInput) : null;
+    // Convert price dan stock ke number, jika gagal parse jadi NaN
+    const price = priceRaw ? Number(priceRaw) : NaN;
+    const stock = stockRaw ? Number(stockRaw) : NaN;
 
-    //Schema Validation
-    const validation = createProduct.safeParse({
+    // Convert categoryId ke number|null
+    const categoryId = categoryRaw !== null && categoryRaw !== "" ? Number(categoryRaw) : null;
+
+    const validation = createProductSchema.safeParse({
       name,
       price,
       description,
       stock,
-      categoryId: categoryId !== null ? categoryId : null,
+      categoryId,
     });
 
     if (!validation.success) {
-      return NextResponse.json({ error: validation.error }, { status: 400 });
+      return NextResponse.json({ error: validation.error.flatten() }, { status: 400 });
     }
 
-    //Upload to Bucket
+    if (!imageFile) {
+      return NextResponse.json({ error: "Image file is required" }, { status: 400 });
+    }
+
     const fileExt = imageFile.name.split(".").pop();
     const fileName = `${Date.now()}.${fileExt}`;
     const bucketName = "flourish";
@@ -52,7 +58,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: uploadError.message }, { status: 500 });
     }
 
-    const publicUrl = supabase.storage.from(bucketName).getPublicUrl(filePath).data.publicUrl;
+    const { data: publicUrlData } = supabase.storage.from(bucketName).getPublicUrl(filePath);
+    const publicUrl = publicUrlData.publicUrl;
 
     const newProduct = await prisma.product.create({
       data: {
@@ -66,11 +73,72 @@ export async function POST(req: NextRequest) {
     });
 
     return NextResponse.json(
-      { data: newProduct, message: "Course created successfully" },
+      { data: newProduct, message: "Product created successfully" },
       { status: 201 }
     );
   } catch (error) {
-    console.error("POST /api/product error:", error);
-    return NextResponse.json({ error, message: "Course creation failed" }, { status: 500 });
+    console.error("POST /api/products error:", error);
+    return NextResponse.json(
+      { error: "Internal server error", message: "Product creation failed" },
+      { status: 500 }
+    );
+  }
+}
+
+
+export async function GET(req: NextRequest) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const page = Number(searchParams.get("page")) || 1;
+    const limit = Number(searchParams.get("limit")) || 9;
+    const search = searchParams.get("search") || "";
+    const categoryId = Number(searchParams.get("categoryId")) || null;
+
+    const skip = (page - 1) * limit;
+
+    const total = await prisma.product.count({
+      where: {
+        name: {
+          contains: search,
+          mode: "insensitive",
+        },
+        categoryId: categoryId,
+      },
+    });
+
+    // Get Course Data
+    const product = await prisma.product.findMany({
+      where: {
+        name: {
+          contains: search,
+          mode: "insensitive",
+        },
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+      skip,
+      take: limit,
+      include: {
+        category: true,
+      },
+    });
+
+    return NextResponse.json(
+      {
+        success: true,
+        data: product,
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages: Math.ceil(total / limit),
+        },
+      },
+      { status: 200 }
+    );
+  } catch (error) {
+    console.error("GET /api/product error:", error);
+    return NextResponse.json({ error, message: "Failed to fetch product data" }, { status: 500 });
   }
 }
