@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
-import { Edit2Icon, EllipsisIcon, ListFilterIcon, PlusCircle, Trash2Icon } from "lucide-react";
+import { Edit2Icon, ListFilterIcon, PlusCircle, Trash2Icon } from "lucide-react";
 import { useEffect, useState } from "react";
 import {
   Dialog,
@@ -14,7 +14,12 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useForm } from "react-hook-form";
-import { CreateCategoryInput, createCategorySchema } from "@/lib/schema/category.schema";
+import {
+  CreateProductInput,
+  createProductSchema,
+  EditProductInput,
+  editProductSchema,
+} from "@/lib/schema/product.schema";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   Form,
@@ -25,12 +30,6 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { toast } from "sonner";
-import {
-  CreateProductInput,
-  createProductSchema,
-  EditProductInput,
-  editProductSchema,
-} from "@/lib/schema/product.schema";
 import {
   Select,
   SelectContent,
@@ -57,34 +56,40 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  CreateCategoryInput,
+  createCategorySchema,
+  EditCategoryInput,
+  editCategorySchema,
+} from "@/lib/schema/category.schema";
 
 export function Product() {
-  // State for main data
-  const [product, setProduct] = useState<Product[]>([]);
-  const [category, setCategory] = useState<Category[]>([]);
-
-  // State for UI control
+  // =============== STATE MANAGEMENT ===============
+  // Product states
+  const [products, setProducts] = useState<Product[]>([]);
   const [isProductOpen, setProductOpen] = useState(false);
-  const [isCategoryOpen, setCategoryOpen] = useState(false);
-  const [editOpen, setEditOpen] = useState(false);
-  const [deleteOpen, setDeleteOpen] = useState(false);
-
-  // State for form dan operasi
+  const [editProductOpen, setEditProductOpen] = useState(false);
+  const [deleteProductOpen, setDeleteProductOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
-  const [filterCategory, setFilterCategory] = useState<number | null>(null);
-  const [searchTerm, setSearchTerm] = useState("");
-
-  // State for file/image handling
   const [image, setImage] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
 
-  const formCategory = useForm<CreateCategoryInput>({
-    resolver: zodResolver(createCategorySchema),
-    defaultValues: { name: "" },
-  });
+  // Category states
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [isCategoryOpen, setCategoryOpen] = useState(false);
+  const [editCategoryOpen, setEditCategoryOpen] = useState(false);
+  const [categoryToDelete, setCategoryToDelete] = useState<Category | null>(null);
+  const [deleteCategoryOpen, setDeleteCategoryOpen] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
 
-  const formProduct = useForm<CreateProductInput>({
+  // Filter states
+  const [filterCategory, setFilterCategory] = useState<number | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
+
+  // =============== FORM MANAGEMENT ===============
+  // Product forms
+  const productForm = useForm<CreateProductInput>({
     resolver: zodResolver(createProductSchema),
     defaultValues: {
       name: "",
@@ -95,7 +100,7 @@ export function Product() {
     },
   });
 
-  const formEdit = useForm<EditProductInput>({
+  const editProductForm = useForm<EditProductInput>({
     resolver: zodResolver(editProductSchema),
     defaultValues: {
       name: "",
@@ -106,19 +111,52 @@ export function Product() {
     },
   });
 
-  const fetchCategory = async () => {
-    try {
-      const res = await fetch("/api/category");
-      if (!res.ok) throw new Error("Failed to fetch categories");
-      const data: Category[] = await res.json();
-      console.log("Data ", data);
-      setCategory(data);
-    } catch (error) {
-      console.error(error);
-    }
-  };
+  // Category forms
+  const categoryForm = useForm<CreateCategoryInput>({
+    resolver: zodResolver(createCategorySchema),
+    defaultValues: { name: "" },
+  });
 
-  const onSubmitProduct = async (data: CreateProductInput) => {
+  const editCategoryForm = useForm<EditCategoryInput>({
+    resolver: zodResolver(editCategorySchema),
+    defaultValues: { name: "" },
+  });
+
+  // =============== DATA FETCHING ===============
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        // Fetch products
+        const params = new URLSearchParams();
+        params.append("page", "1");
+        params.append("limit", "9");
+        if (searchTerm) params.append("search", searchTerm);
+        if (filterCategory !== null) {
+          params.append("categoryId", filterCategory.toString());
+        }
+
+        const productsResponse = await fetch(`/api/products?${params.toString()}`);
+        if (productsResponse.ok) {
+          const productsData = await productsResponse.json();
+          setProducts(productsData.product);
+        }
+
+        // Fetch categories
+        const categoriesResponse = await fetch("/api/category");
+        if (categoriesResponse.ok) {
+          const categoriesData = await categoriesResponse.json();
+          setCategories(categoriesData);
+        }
+      } catch (error) {
+        console.error("Error fetching data:", error);
+      }
+    };
+
+    fetchData();
+  }, [isCategoryOpen, searchTerm, filterCategory]);
+
+  // =============== PRODUCT FUNCTIONS ===============
+  const handleCreateProduct = async (data: CreateProductInput) => {
     try {
       if (!image) {
         toast.error("Product image required!");
@@ -128,8 +166,8 @@ export function Product() {
       const formData = new FormData();
       formData.append("name", data.name);
       formData.append("description", data.description);
-      formData.append("price", String(data.price)); // convert number ke string
-      formData.append("stock", String(data.stock)); // convert number ke string
+      formData.append("price", String(data.price));
+      formData.append("stock", String(data.stock));
       formData.append("imageUrl", image);
 
       if (data.categoryId !== null && data.categoryId !== undefined) {
@@ -142,7 +180,7 @@ export function Product() {
       });
 
       if (!response.ok) {
-        toast.error("Failed Create Product Data", { duration: 3000 });
+        toast.error("Failed to create product", { duration: 3000 });
         return;
       }
 
@@ -150,42 +188,22 @@ export function Product() {
       setProductOpen(false);
       setImage(null);
       setPreview(null);
-      formProduct.reset();
+      productForm.reset();
       window.location.reload();
     } catch (error) {
-      console.error("Submission error:", error);
+      console.error("Product creation error:", error);
     }
   };
 
-  const onSubmitCategory = async (data: CreateCategoryInput) => {
-    try {
-      const res = await fetch("/api/category", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      });
-
-      if (!res.ok) {
-        toast.error("Failed Create Category", { duration: 3000 });
-        return;
-      }
-
-      toast.success("Create Category Successfully", { duration: 3000 });
-      formCategory.reset();
-    } catch (error) {
-      console.error(error);
-    }
-  };
-
-  const onEditSubmit = async (data: EditProductInput) => {
+  const handleEditProduct = async (data: EditProductInput) => {
     try {
       if (!selectedProduct) return;
 
       const formData = new FormData();
       formData.append("name", data.name);
       formData.append("description", data.description);
-      formData.append("price", String(data.price)); // convert number ke string
-      formData.append("stock", String(data.stock)); // convert number ke string
+      formData.append("price", String(data.price));
+      formData.append("stock", String(data.stock));
       if (image) {
         formData.append("imageUrl", image);
       }
@@ -200,47 +218,21 @@ export function Product() {
       });
 
       if (!response.ok) {
-        throw new Error("Failed to update product");
+        toast.error("Failed to update product", { duration: 3000 });
+        return;
       }
 
       toast.success("Product updated successfully!");
-      setEditOpen(false);
-      formEdit.reset();
+      setEditProductOpen(false);
+      editProductForm.reset();
       window.location.reload();
     } catch (error) {
-      console.error("Edit error:", error);
+      console.error("Product edit error:", error);
       toast.error("Failed to update product");
     }
   };
 
-  const handleOpenEdit = (product: Product) => {
-    setSelectedProduct(product);
-    setEditOpen(true);
-    setPreview(product.imageUrl || null);
-
-    formEdit.reset({
-      name: product.name,
-      price: product.price,
-      description: product.description,
-      stock: product.stock,
-      categoryId: product.categoryId || null,
-    });
-  };
-
-  const handleCancelEdit = () => {
-    setSelectedProduct(null);
-    setImage(null);
-    setPreview(null);
-    formEdit.reset({
-      name: "",
-      price: 0,
-      description: "",
-      stock: 0,
-      categoryId: null,
-    });
-  };
-
-  const handleDelete = async () => {
+  const handleDeleteProduct = async () => {
     if (!productToDelete) return;
 
     try {
@@ -249,49 +241,139 @@ export function Product() {
       });
 
       if (!response.ok) {
-        throw new Error("Failed to delete product");
+        toast.error("Failed to delete product", { duration: 3000 });
+        return;
       }
 
-      toast.success("Product deleted successfully", {duration: 3000});
-      setDeleteOpen(false);
+      toast.success("Product deleted successfully", { duration: 3000 });
+      setDeleteProductOpen(false);
       setProductToDelete(null);
       window.location.reload();
     } catch (error) {
-      console.error("Delete error:", error);
+      console.error("Product deletion error:", error);
       toast.error("Failed to delete product");
     }
   };
 
-  useEffect(() => {
-    const fetchProduct = async (
-      page: number = 1,
-      limit: number = 9,
-      search: string = searchTerm,
-      categoryId: number | null = filterCategory
-    ) => {
-      const params = new URLSearchParams();
+  const handleOpenProductEdit = (product: Product) => {
+    setSelectedProduct(product);
+    setEditProductOpen(true);
+    setPreview(product.imageUrl || null);
 
-      params.append("page", page.toString());
-      params.append("limit", limit.toString());
-      if (search) params.append("search", search);
-      if (categoryId !== null) {
-        params.append("categoryId", categoryId.toString());
+    editProductForm.reset({
+      name: product.name,
+      price: product.price,
+      description: product.description,
+      stock: product.stock,
+      categoryId: product.categoryId || null,
+    });
+  };
+
+  const handleCancelProductEdit = () => {
+    setSelectedProduct(null);
+    setImage(null);
+    setPreview(null);
+    editProductForm.reset({
+      name: "",
+      price: 0,
+      description: "",
+      stock: 0,
+      categoryId: null,
+    });
+  };
+
+  // =============== CATEGORY FUNCTIONS ===============
+  const handleCreateCategory = async (data: CreateCategoryInput) => {
+    try {
+      const res = await fetch("/api/category", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+
+      if (!res.ok) {
+        toast.error("Failed to create category", { duration: 3000 });
+        return;
       }
 
-      const response = await fetch(`/api/products?${params.toString()}`);
-
-      if (response.ok) {
-        const data = await response.json();
-        setProduct(data.product);
+      toast.success("Category created successfully", { duration: 3000 });
+      categoryForm.reset();
+      const categoriesResponse = await fetch("/api/category");
+      if (categoriesResponse.ok) {
+        const categoriesData = await categoriesResponse.json();
+        setCategories(categoriesData);
       }
-    };
+    } catch (error) {
+      console.error("Category creation error:", error);
+    }
+  };
 
-    fetchProduct();
-    fetchCategory();
-  }, [isCategoryOpen, searchTerm, filterCategory]);
+  const handleEditCategory = async (data: EditCategoryInput) => {
+    if (!selectedCategory) return;
+    try {
+      const response = await fetch(`/api/category/${selectedCategory.id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+      });
 
+      if (!response.ok) {
+        toast.error("Failed to update category", { duration: 3000 });
+        return;
+      }
+
+      toast.success("Category updated successfully!");
+      setEditCategoryOpen(false);
+      editCategoryForm.reset();
+      const categoriesResponse = await fetch("/api/category");
+      if (categoriesResponse.ok) {
+        const categoriesData = await categoriesResponse.json();
+        setCategories(categoriesData);
+      }
+    } catch (error) {
+      console.error("Category edit error:", error);
+      toast.error("Failed to update category");
+    }
+  };
+
+  const handleDeleteCategory = async () => {
+    if (!categoryToDelete) return;
+    try {
+      const response = await fetch(`/api/category/${categoryToDelete.id}`, {
+        method: "DELETE",
+      });
+
+      if (!response.ok) {
+        toast.error("Failed to delete category", { duration: 3000 });
+        return;
+      }
+
+      toast.success("Category deleted successfully");
+      const categoriesResponse = await fetch("/api/category");
+      if (categoriesResponse.ok) {
+        const categoriesData = await categoriesResponse.json();
+        setCategories(categoriesData);
+      }
+    } catch (error) {
+      console.error("Category deletion error:", error);
+      toast.error("Failed to delete category");
+    }
+  };
+
+  const handleOpenCategoryEdit = (category: Category) => {
+    setSelectedCategory(category);
+    setEditCategoryOpen(true);
+    editCategoryForm.reset({
+      name: category.name,
+    });
+  };
+
+  // =============== RENDER COMPONENT ===============
   return (
     <div>
+      {/* =============== PRODUCT MANAGEMENT =============== */}
       <Card className="w-full">
         <CardHeader>
           <div className="flex items-center justify-between">
@@ -309,6 +391,7 @@ export function Product() {
         </CardHeader>
 
         <CardContent className="space-y-6">
+          {/* Search and Filter */}
           <div className="flex gap-4 items-center">
             <Input
               type="search"
@@ -323,7 +406,7 @@ export function Product() {
                 <ListFilterIcon className="h-4 w-4" />
                 <span>
                   {filterCategory
-                    ? category.find((cat) => cat.id === Number(filterCategory))?.name
+                    ? categories.find((cat) => cat.id === Number(filterCategory))?.name
                     : "Filter"}
                 </span>
               </DropdownMenuTrigger>
@@ -335,7 +418,7 @@ export function Product() {
                   }`}>
                   All Categories
                 </DropdownMenuItem>
-                {category.map((cat) => (
+                {categories.map((cat) => (
                   <DropdownMenuItem
                     key={cat.id}
                     onSelect={() => setFilterCategory(cat.id)}
@@ -348,9 +431,12 @@ export function Product() {
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
+
           <Separator />
+
+          {/* Product Grid */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {(product || []).map((product) => (
+            {(products || []).map((product) => (
               <Card
                 key={product.id}
                 className="relative group border-2 rounded-lg overflow-hidden aspect-square h-full w-full transition-all hover:shadow-lg">
@@ -368,14 +454,12 @@ export function Product() {
                   </Badge>
                 </div>
 
-                {/* Badge Status - Improved styling */}
                 <div className="absolute top-4 right-4">
                   <Badge className="px-3 py-2" variant="default">
                     Category: {product.category?.name || "Uncategorized"}
                   </Badge>
                 </div>
 
-                {/* Product Data - Improved layout */}
                 <div className="absolute bottom-4 left-4 right-4 space-y-1.5 text-white">
                   <CardTitle className="text-xl font-bold drop-shadow-md line-clamp-1">
                     {product.name}
@@ -388,13 +472,12 @@ export function Product() {
                   </p>
                 </div>
 
-                {/* Footer Buttons - Improved hover effects */}
                 <CardFooter className="absolute bottom-4 right-0 gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                   <Button
                     size="sm"
                     variant="outline"
                     className="rounded-full p-2 h-8 w-8"
-                    onClick={() => handleOpenEdit(product)}>
+                    onClick={() => handleOpenProductEdit(product)}>
                     <Edit2Icon className="h-3.5 w-3.5" />
                   </Button>
                   <Button
@@ -403,7 +486,7 @@ export function Product() {
                     className="rounded-full p-2 h-8 w-8"
                     onClick={() => {
                       setProductToDelete(product);
-                      setDeleteOpen(true);
+                      setDeleteProductOpen(true);
                     }}>
                     <Trash2Icon className="h-3.5 w-3.5" />
                   </Button>
@@ -415,6 +498,7 @@ export function Product() {
         <CardFooter />
       </Card>
 
+      {/* =============== PRODUCT DIALOGS =============== */}
       {/* Create Product Dialog */}
       <Dialog open={isProductOpen} onOpenChange={setProductOpen}>
         <DialogContent className="max-h-[90vh] overflow-hidden flex flex-col">
@@ -426,8 +510,8 @@ export function Product() {
           </DialogHeader>
 
           <div className="flex-1 overflow-y-auto px-1 py-2">
-            <Form {...formProduct}>
-              <form onSubmit={formProduct.handleSubmit(onSubmitProduct)} className="space-y-4">
+            <Form {...productForm}>
+              <form onSubmit={productForm.handleSubmit(handleCreateProduct)} className="space-y-4">
                 {preview && (
                   <div className="flex justify-center">
                     <div className="aspect-auto">
@@ -442,9 +526,8 @@ export function Product() {
                   </div>
                 )}
 
-                {/* Name */}
                 <FormField
-                  control={formProduct.control}
+                  control={productForm.control}
                   name="name"
                   render={({ field }) => (
                     <FormItem>
@@ -457,9 +540,8 @@ export function Product() {
                   )}
                 />
 
-                {/* Price */}
                 <FormField
-                  control={formProduct.control}
+                  control={productForm.control}
                   name="price"
                   render={({ field }) => (
                     <FormItem>
@@ -477,9 +559,8 @@ export function Product() {
                   )}
                 />
 
-                {/* Description */}
                 <FormField
-                  control={formProduct.control}
+                  control={productForm.control}
                   name="description"
                   render={({ field }) => (
                     <FormItem>
@@ -496,9 +577,8 @@ export function Product() {
                   )}
                 />
 
-                {/* Stock */}
                 <FormField
-                  control={formProduct.control}
+                  control={productForm.control}
                   name="stock"
                   render={({ field }) => (
                     <FormItem>
@@ -516,9 +596,8 @@ export function Product() {
                   )}
                 />
 
-                {/* CategoryId */}
                 <FormField
-                  control={formProduct.control}
+                  control={productForm.control}
                   name="categoryId"
                   render={({ field }) => (
                     <FormItem>
@@ -533,7 +612,7 @@ export function Product() {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {category
+                          {categories
                             .filter((cat) => cat.id !== null && cat.id !== undefined)
                             .map((cat) => (
                               <SelectItem key={cat.id} value={cat.id.toString()}>
@@ -547,7 +626,6 @@ export function Product() {
                   )}
                 />
 
-                {/* Image */}
                 <FormItem>
                   <FormLabel>Product Image</FormLabel>
                   <FormControl>
@@ -584,69 +662,14 @@ export function Product() {
         </DialogContent>
       </Dialog>
 
-      {/* List Category Dialog */}
-      <Dialog open={isCategoryOpen} onOpenChange={setCategoryOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle className="text-center">Product Category</DialogTitle>
-            <DialogDescription className="text-center">
-              This is a list of product categories.
-            </DialogDescription>
-          </DialogHeader>
-
-          {/* Category List Scrollable */}
-          <div className="mb-4 max-h-60 overflow-y-auto space-y-2 pr-2">
-            {category.length ? (
-              category.map((item) => (
-                <div key={item.id} className="p-2 border rounded flex justify-between items-center">
-                  <span>{item.name}</span>
-                  <div className="flex gap-2">
-                    <Button variant="outline" size="sm">
-                      Edit
-                    </Button>
-                    <Button variant="destructive" size="sm">
-                      Delete
-                    </Button>
-                  </div>
-                </div>
-              ))
-            ) : (
-              <p className="text-gray-500 italic">Tidak ada kategori</p>
-            )}
-          </div>
-
-          {/* Create Category Form */}
-          <Form {...formCategory}>
-            <form onSubmit={formCategory.handleSubmit(onSubmitCategory)} className="space-y-4">
-              <FormField
-                control={formCategory.control}
-                name="name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>New Category Name</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Enter category name" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <Button type="submit" className="w-full">
-                Create Category
-              </Button>
-            </form>
-          </Form>
-        </DialogContent>
-      </Dialog>
-
-      {/* Detail/Edit Product Dialog */}
+      {/* Edit Product Dialog */}
       <Dialog
-        open={editOpen}
+        open={editProductOpen}
         onOpenChange={(open) => {
           if (!open) {
-            handleCancelEdit();
+            handleCancelProductEdit();
           }
-          setEditOpen(open);
+          setEditProductOpen(open);
         }}>
         <DialogContent className="max-h-[90vh] overflow-hidden flex flex-col">
           <DialogHeader className="shrink-0">
@@ -660,9 +683,10 @@ export function Product() {
 
           <div className="flex-1 overflow-y-auto px-1 py-2">
             {selectedProduct && (
-              <Form {...formEdit}>
-                <form onSubmit={formEdit.handleSubmit(onEditSubmit)} className="space-y-4 mt-6">
-                  {/* ... (salin semua field form dari Create Product Dialog) ... */}
+              <Form {...editProductForm}>
+                <form
+                  onSubmit={editProductForm.handleSubmit(handleEditProduct)}
+                  className="space-y-4 mt-6">
                   {preview && (
                     <div className="flex justify-center">
                       <div className="aspect-auto">
@@ -677,9 +701,8 @@ export function Product() {
                     </div>
                   )}
 
-                  {/* Name */}
                   <FormField
-                    control={formEdit.control}
+                    control={editProductForm.control}
                     name="name"
                     render={({ field }) => (
                       <FormItem>
@@ -692,9 +715,8 @@ export function Product() {
                     )}
                   />
 
-                  {/* Price */}
                   <FormField
-                    control={formEdit.control}
+                    control={editProductForm.control}
                     name="price"
                     render={({ field }) => (
                       <FormItem>
@@ -712,9 +734,8 @@ export function Product() {
                     )}
                   />
 
-                  {/* Description */}
                   <FormField
-                    control={formEdit.control}
+                    control={editProductForm.control}
                     name="description"
                     render={({ field }) => (
                       <FormItem>
@@ -731,9 +752,8 @@ export function Product() {
                     )}
                   />
 
-                  {/* Stock */}
                   <FormField
-                    control={formEdit.control}
+                    control={editProductForm.control}
                     name="stock"
                     render={({ field }) => (
                       <FormItem>
@@ -751,9 +771,8 @@ export function Product() {
                     )}
                   />
 
-                  {/* CategoryId */}
                   <FormField
-                    control={formEdit.control}
+                    control={editProductForm.control}
                     name="categoryId"
                     render={({ field }) => (
                       <FormItem>
@@ -768,7 +787,7 @@ export function Product() {
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            {category
+                            {categories
                               .filter((cat) => cat.id !== null && cat.id !== undefined)
                               .map((cat) => (
                                 <SelectItem key={cat.id} value={cat.id.toString()}>
@@ -782,7 +801,6 @@ export function Product() {
                     )}
                   />
 
-                  {/* Image */}
                   <FormItem>
                     <FormLabel>Product Image</FormLabel>
                     <FormControl>
@@ -818,8 +836,9 @@ export function Product() {
           </div>
         </DialogContent>
       </Dialog>
-      {/* Alert Dialog Delete */}
-      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+
+      {/* Delete Product Confirmation */}
+      <AlertDialog open={deleteProductOpen} onOpenChange={setDeleteProductOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Are you absolutely sure to delete this product?</AlertDialogTitle>
@@ -830,7 +849,127 @@ export function Product() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete}>Delete</AlertDialogAction>
+            <AlertDialogAction onClick={handleDeleteProduct}>Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* =============== CATEGORY DIALOGS =============== */}
+      {/* Category Management Dialog */}
+      <Dialog open={isCategoryOpen} onOpenChange={setCategoryOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="text-center">Product Category</DialogTitle>
+            <DialogDescription className="text-center">
+              This is a list of product categories.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="mb-4 max-h-60 overflow-y-auto space-y-2 pr-2">
+            {categories.length ? (
+              categories.map((item) => (
+                <div key={item.id} className="p-2 border rounded flex justify-between items-center">
+                  <span>{item.name}</span>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleOpenCategoryEdit(item)}>
+                      Edit
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => {
+                        setCategoryToDelete(item);
+                        setDeleteCategoryOpen(true);
+                      }}>
+                      Delete
+                    </Button>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <p className="text-gray-500 italic">No categories found</p>
+            )}
+          </div>
+
+          <Form {...categoryForm}>
+            <form onSubmit={categoryForm.handleSubmit(handleCreateCategory)} className="space-y-4">
+              <FormField
+                control={categoryForm.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>New Category Name</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Enter category name" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <Button type="submit" className="w-full">
+                Create Category
+              </Button>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Category Dialog */}
+      <Dialog
+        open={editCategoryOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            setSelectedCategory(null);
+            editCategoryForm.reset();
+          }
+          setEditCategoryOpen(open);
+        }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="text-center">Edit Product Category</DialogTitle>
+          </DialogHeader>
+
+          <Form {...editCategoryForm}>
+            <form
+              onSubmit={editCategoryForm.handleSubmit(handleEditCategory)}
+              className="space-y-4">
+              <FormField
+                control={editCategoryForm.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Category Name</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Enter category name" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <Button type="submit" className="w-full">
+                Save Changes
+              </Button>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Category Confirmation */}
+      <AlertDialog open={deleteCategoryOpen} onOpenChange={setDeleteCategoryOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure to delete this category?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete this category and all
+              products under it.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteCategory}>Delete</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

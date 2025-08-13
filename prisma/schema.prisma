@@ -3,18 +3,18 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
 }
 
 model User {
-  id        String    @id @default(uuid())
-  username  String    @unique
-  email     String    @unique
+  id        String   @id @default(uuid())
+  username  String   @unique
+  email     String   @unique
   password  String
-  role      Role      @default(CUSTOMER)
-  createdAt DateTime  @default(now()) @map("created_at")
+  role      Role     @default(CUSTOMER)
+  createdAt DateTime @default(now()) @map("created_at")
   carts     Cart[]
   orders    Order[]
 
@@ -22,15 +22,15 @@ model User {
 }
 
 model Product {
-  id          Int       @id @default(autoincrement())
+  id          Int        @id @default(autoincrement())
   name        String
   price       Int
-  description String    @db.Text
-  stock       Int       @default(0)
-  imageUrl    String    @map("image_url")
-  category    Category? @relation(fields: [categoryId], references: [id])
-  categoryId  Int?
-  createdAt   DateTime  @default(now()) @map("created_at")
+  description String     @db.Text
+  stock       Int        @default(0)
+  imageUrl    String     @map("image_url")
+  category    Category?  @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  categoryId  Int?    
+  createdAt   DateTime   @default(now()) @map("created_at")
   cartItems   CartItem[]
   orderItems  OrderItem[]
 
@@ -38,16 +38,16 @@ model Product {
 }
 
 model Category {
-  id        Int       @id @default(autoincrement())
-  name      String    @unique @map("category")
-  products  Product[]
-  
+  id       Int       @id @default(autoincrement())
+  name     String    @unique @map("category")
+  products Product[]
+
   @@map("categories")
 }
 
 model Cart {
   id        Int       @id @default(autoincrement())
-  user      User      @relation(fields: [userId], references: [id])
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId    String    @map("user_id")
   items     CartItem[]
   createdAt DateTime  @default(now()) @map("created_at")
@@ -56,19 +56,19 @@ model Cart {
 }
 
 model CartItem {
-  id        Int     @id @default(autoincrement())
-  cart      Cart    @relation(fields: [cartId], references: [id])
-  cartId    Int     @map("cart_id")
-  product   Product @relation(fields: [productId], references: [id])
-  productId Int     @map("product_id")
-  quantity  Int     @default(1)
+  id        Int      @id @default(autoincrement())
+  cart      Cart     @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  cartId    Int      @map("cart_id")
+  product   Product  @relation(fields: [productId], references: [id])
+  productId Int      @map("product_id") 
+  quantity  Int      @default(1)
 
   @@map("cart_items")
 }
 
 model Order {
   id          Int         @id @default(autoincrement())
-  user        User        @relation(fields: [userId], references: [id])
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId      String      @map("user_id")
   items       OrderItem[]
   totalAmount Int         @map("total_amount")
@@ -80,8 +80,8 @@ model Order {
 
 model OrderItem {
   id          Int     @id @default(autoincrement())
-  order       Order   @relation(fields: [orderId], references: [id])
-  orderId     Int     @map("order_id")
+  order       Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderId     Int     @map("order_id") 
   product     Product @relation(fields: [productId], references: [id])
   productId   Int     @map("product_id")
   quantity    Int

@@ -44,7 +44,11 @@ export async function POST(req: NextRequest) {
 
 export async function GET() {
   try {
-    const categories = await prisma.category.findMany();
+    const categories = await prisma.category.findMany({
+      orderBy: {
+        id: "asc",
+      },
+    });
     return NextResponse.json(categories, { status: 200 });
   } catch (error) {
     console.error("Error fetching categories:", error);
