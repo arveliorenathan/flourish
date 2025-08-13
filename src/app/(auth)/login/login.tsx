@@ -1,6 +1,13 @@
 "use client";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import {
   Form,
   FormControl,
@@ -18,6 +25,7 @@ import z from "zod";
 import { toast } from "sonner";
 import { getSession, signIn } from "next-auth/react";
 import { useEffect } from "react";
+import Link from "next/link";
 
 export function Login() {
   const router = useRouter();
@@ -112,6 +120,15 @@ export function Login() {
           </form>
         </Form>
       </CardContent>
+      <CardFooter className="flex-col gap-2">
+        {" "}
+        <span>
+          Dont have an account yet?{" "}
+          <Link href="/register" className="text-blue-600 hover:underline">
+            Register
+          </Link>
+        </span>
+      </CardFooter>
     </Card>
   );
 }

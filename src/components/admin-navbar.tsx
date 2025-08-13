@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { LogOut } from "lucide-react";
+import { usePathname } from "next/navigation";
 
 interface UserData {
   id: string;
@@ -25,12 +26,25 @@ interface AdminNavbarProps {
   user: UserData;
 }
 
+function getPageTitle(pathname: string) {
+  switch (pathname) {
+    case "/admin/dashboard":
+      return "Dashboard Management";
+    case "/admin/product":
+      return "Product Management";
+    default:
+      return "";
+  }
+}
+
 export default function AdminNavbar({ user }: AdminNavbarProps) {
+  const pathname = usePathname();
+  const pageTitle = getPageTitle(pathname);
   return (
     <div className="flex items-center justify-between px-6 py-4">
       <div className="flex items-center gap-3">
         <SidebarTrigger />
-        <span className="text-xl font-medium">Admin Dashboard</span>
+        <span className="text-xl font-medium">{pageTitle}</span>
       </div>
 
       <div className="flex items-center gap-4">
