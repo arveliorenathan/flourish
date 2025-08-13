@@ -17,9 +17,24 @@ import { useForm } from "react-hook-form";
 import z from "zod";
 import { toast } from "sonner";
 import { getSession, signIn } from "next-auth/react";
+import { useEffect } from "react";
 
 export function Login() {
   const router = useRouter();
+
+  useEffect(() => {
+    const checkSession = async () => {
+      const session = await getSession();
+      if (session?.user?.role === "ADMIN") {
+        router.push("/admin/dashboard");
+      } else if (session?.user?.role === "CUSTOMER") {
+        router.push("/customer/home");
+      }
+    };
+
+    checkSession();
+  });
+
   const form = useForm<LoginInput>({
     resolver: zodResolver(loginSchema),
     defaultValues: {

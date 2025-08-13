@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import { createProductSchema } from "@/lib/schema/product.schema";
+import { Prisma } from "@prisma/client";
 import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -85,35 +86,36 @@ export async function POST(req: NextRequest) {
   }
 }
 
-
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const page = Number(searchParams.get("page")) || 1;
     const limit = Number(searchParams.get("limit")) || 9;
     const search = searchParams.get("search") || "";
-    const categoryId = Number(searchParams.get("categoryId")) || null;
+    const categoryId = searchParams.get("categoryId")
+      ? Number(searchParams.get("categoryId"))
+      : null;
 
     const skip = (page - 1) * limit;
+    
+    const whereCondition: Prisma.ProductWhereInput = {
+      name: {
+        contains: search,
+        mode: "insensitive",
+      },
+    };
+
+    // Add category filter conditionally
+    if (categoryId !== null) {
+      whereCondition.categoryId = categoryId;
+    }
 
     const total = await prisma.product.count({
-      where: {
-        name: {
-          contains: search,
-          mode: "insensitive",
-        },
-        categoryId: categoryId,
-      },
+      where: whereCondition,
     });
 
-    // Get Course Data
     const product = await prisma.product.findMany({
-      where: {
-        name: {
-          contains: search,
-          mode: "insensitive",
-        },
-      },
+      where: whereCondition,
       orderBy: {
         createdAt: "desc",
       },
@@ -127,7 +129,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(
       {
         success: true,
-        data: product,
+        product,
         pagination: {
           page,
           limit,
