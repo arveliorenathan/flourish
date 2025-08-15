@@ -13,7 +13,6 @@ import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Cart } from "@/types/cart";
 import { ListFilterIcon, ShoppingCart, Trash2 } from "lucide-react";
-import { fetchData } from "next-auth/client/_utils";
 import { useSession } from "next-auth/react";
 import Image from "next/image";
 import { useEffect, useState } from "react";
