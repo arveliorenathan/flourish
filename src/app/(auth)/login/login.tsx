@@ -74,7 +74,7 @@ export function Login() {
         router.push("/admin/dashboard");
       } else {
         router.refresh();
-        router.push("/user/dashboard");
+        router.push("/customer/home");
       }
     }
   };

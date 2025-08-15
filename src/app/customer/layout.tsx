@@ -1,34 +1,30 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
-import { AdminSidebar } from "@/components/admin-sidebar";
 import { Separator } from "@/components/ui/separator";
-import AdminNavbar from "@/components/admin-navbar";
 import { SidebarProvider } from "@/components/ui/sidebar";
+import CustomerNavbar from "@/components/customer-navbar";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const session = await getServerSession(authOptions);
 
   // Redirect jika tidak ada session
   if (!session) {
-    redirect("/login?callbackUrl=/admin");
+    redirect("/login?callbackUrl=/customer");
   }
 
   // Optional: Cek role user
-  if (session.user.role !== "ADMIN") {
+  if (session.user.role !== "CUSTOMER") {
     redirect("/unauthorized");
   }
 
   return (
     <SidebarProvider>
       <div className="flex w-full min-h-screen">
-        {/* Sidebar - Server Component */}
-        <AdminSidebar />
-
         {/* Main Area */}
         <div className="flex flex-col w-full">
           {/* Navbar - Client Component (karena butuh interaksi) */}
-          <AdminNavbar user={session.user} />
+          <CustomerNavbar user={session.user} />
 
           {/* Separator */}
           <Separator />
